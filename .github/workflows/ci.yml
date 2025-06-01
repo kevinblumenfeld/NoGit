@@ -37,28 +37,12 @@ jobs:
         shell: pwsh
         run: |
           Build-Module -SourcePath ./module/NoGit -OutputDirectory ./Output
-
-      - name: Upload module package
-        uses: actions/upload-artifact@v4
-        with:
-          name: PSModule
-          path: ./Output/**/*
-
   publish:
     name: Publish to PowerShell Gallery
     if: github.event_name == 'release'
     needs: build
     runs-on: windows-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: PSModule
-          path: ./Output
-
       - name: Publish to Gallery
         shell: pwsh
         run: |
