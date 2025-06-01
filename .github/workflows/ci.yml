@@ -1,12 +1,10 @@
-name: NoGit Release Pipeline
+name: NoGit CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   release:
-    types:
-      - published
+    types: [ published ]
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
@@ -16,48 +14,41 @@ env:
 
 jobs:
   build:
-    name: Build and Package
     runs-on: windows-latest
-
     steps:
-    - name: Check out repo
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Install PowerShell ModuleBuilder
-      shell: pwsh
-      run: Install-Module ModuleBuilder -Force -Scope CurrentUser
+      - name: Build PowerShell Module
+        shell: pwsh
+        run: |
+          Import-Module ./tools/ProjectBuilder/ProjectBuilder.psd1
+          Build-Module -SourcePath ./module/NoGit -OutputDirectory ./Output
 
-    - name: Build module
-      shell: pwsh
-      run: |
-        New-ModuleManifest -Path output/NoGit.psd1 -RootModule 'NoGit.psm1' -ModuleVersion '1.0.0'
-        Build-Module -Path . -OutputDirectory output
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: NoGit
-        path: output/*.nupkg
+      - name: Upload Built Module
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoGitModule
+          path: ./Output/*.nupkg
 
   publish:
-    name: Publish to PowerShell Gallery
-    if: github.event_name == 'release'
-    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [ build ]
     runs-on: windows-latest
-
     steps:
-    - name: Download Artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: NoGit
-        path: ./output
+      - name: Download Built Module
+        uses: actions/download-artifact@v4
+        with:
+          name: NoGitModule
+          path: ./Output
 
-    - name: Publish to Gallery
-      shell: pwsh
-      run: |
-        dotnet nuget push "./output/*.nupkg" `
-          --api-key $env:PSGALLERY_TOKEN `
-          --source "https://www.powershellgallery.com/api/v2/package" `
-          --no-symbols
-      env:
-        PSGALLERY_TOKEN: ${{ secrets.PSGALLERY_TOKEN }}
+      - name: Publish to PowerShell Gallery
+        shell: pwsh
+        run: |
+          $nupkg = Get-ChildItem -Path ./Output -Filter *.nupkg | Select-Object -First 1
+          dotnet nuget push $nupkg.FullName `
+            --api-key $env:PSGALLERY_TOKEN `
+            --source 'https://www.powershellgallery.com/api/v2/package' `
+            --no-symbols
+        env:
+          PSGALLERY_TOKEN: ${{ secrets.PSGALLERY_TOKEN }}
