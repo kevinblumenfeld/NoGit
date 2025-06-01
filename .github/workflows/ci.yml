@@ -20,14 +20,15 @@ jobs:
   build:
     name: Build NoGit Module
     runs-on: windows-latest
+    outputs:
+      module_path: ${{ steps.find_manifest.outputs.module_path }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Ensure Output directory exists
         shell: pwsh
-        run: |
-          New-Item -Path ./Output -ItemType Directory -Force | Out-Null
+        run: New-Item -Path ./Output -ItemType Directory -Force | Out-Null
 
       - name: Install ModuleBuilder
         shell: pwsh
@@ -35,14 +36,28 @@ jobs:
 
       - name: Build Module
         shell: pwsh
+        run: Build-Module -SourcePath ./module/NoGit -OutputDirectory ./Output
+
+      - name: Find module manifest
+        id: find_manifest
+        shell: pwsh
         run: |
-          Build-Module -SourcePath ./module/NoGit -OutputDirectory ./Output
+          $manifest = Get-ChildItem -Path ./Output -Recurse -Filter '*.psd1' | Select-Object -First 1
+          "module_path=$($manifest.FullName)" >> $env:GITHUB_OUTPUT
+
   publish:
     name: Publish to PowerShell Gallery
     if: github.event_name == 'release'
     needs: build
     runs-on: windows-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PowerShellGet
+        shell: pwsh
+        run: Install-Module PowerShellGet -Force -Scope CurrentUser
+
       - name: Publish to Gallery
         shell: pwsh
         run: |
