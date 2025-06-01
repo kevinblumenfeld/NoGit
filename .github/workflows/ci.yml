@@ -24,6 +24,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Ensure Output directory exists
+        shell: pwsh
+        run: |
+          New-Item -Path ./Output -ItemType Directory -Force | Out-Null
+
       - name: Install ModuleBuilder
         shell: pwsh
         run: Install-Module ModuleBuilder -Scope CurrentUser -Force
@@ -31,7 +36,6 @@ jobs:
       - name: Build Module
         shell: pwsh
         run: |
-          New-Item -Path ./Output -ItemType Directory -Force | Out-Null
           Build-Module -SourcePath ./module/NoGit -OutputDirectory ./Output
 
       - name: Upload module package
