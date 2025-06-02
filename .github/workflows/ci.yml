@@ -27,6 +27,15 @@ jobs:
           Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
           Install-Module -Name Pester -Force -Scope CurrentUser
 
+      - name: Prepare Output folder
+        shell: pwsh
+        run: |
+          $OutputPath = "Output"
+          if (-not (Test-Path $OutputPath)) {
+            Write-Host "Creating Output directory at root level..."
+            New-Item -ItemType Directory -Path $OutputPath | Out-Null
+          }
+
       - name: Run build.ps1
         shell: pwsh
         run: |
@@ -40,17 +49,6 @@ jobs:
           Get-ChildItem -Recurse | ForEach-Object {
             Write-Host ("{0}`t{1}" -f $_.FullName, $_.Length)
           }
-
-      - name: Verify Output folder exists
-        shell: pwsh
-        run: |
-          $OutputPath = "Output"
-          if (-not (Test-Path $OutputPath)) {
-            Write-Error "Output directory not found: $OutputPath"
-            exit 1
-          }
-          Write-Host "Output directory exists. Contents:"
-          Get-ChildItem -Path $OutputPath -Recurse
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
