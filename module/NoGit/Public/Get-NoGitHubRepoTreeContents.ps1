@@ -42,9 +42,11 @@ function Get-NoGitHubRepoTreeContents {
         [string]
         $Repo,
 
+        [Parameter()]
         [string] 
         $Branch = 'main',
 
+        [Parameter(Mandatory)]
         [string]
         $TargetDir
     )

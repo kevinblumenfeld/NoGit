@@ -27,6 +27,7 @@ function Get-NoGitHubRepoContents {
         [string]
         $Branch = 'main',
 
+        [Parameter(Mandatory)]
         [string]
         $TargetDir
     )
