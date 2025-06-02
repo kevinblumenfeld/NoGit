@@ -39,18 +39,26 @@ Install-Module NoGit -Scope CurrentUser
 
 ### Standard Method (Contents API)
 
+To use the commands, identify the **Owner** and **Repo** from the GitHub URL:
+
+```
+https://github.com/Owner/Repo
+                  └────┘└───┘
+                  -Owner -Repo
+```
+
 ```powershell
 Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World'
 ```
 
 ```powershell
-Get-NoGitHubRepoContents -Token 'github_pat_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Verbose
+Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Verbose
 ```
 
 ### Tree-Based Method (for large directories > 1000 files)
 
 ```powershell
-Get-NoGitHubRepoTreeContents -Token 'github_pat_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Verbose
+Get-NoGitHubRepoTreeContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Verbose
 ```
 
 Use `Get-NoGitHubRepoTreeContents` when dealing with a repository that has directories containing over 1000 files, where the standard Contents API may not return all results due to limitations.
