@@ -10,14 +10,7 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Dump entire workspace (recursive)
-        shell: pwsh
-        run: |
-          Write-Host "=== Full Workspace Contents ==="
-          Get-ChildItem -Recurse | ForEach-Object {
-            Write-Host ("{0}`t{1}" -f $_.FullName, $_.Length)
-          }
+      - uses: actions/checkout@v3.6.0
 
       - name: Show working directory and initial contents
         shell: pwsh
@@ -40,6 +33,14 @@ jobs:
           Write-Host "=== Running build.ps1 ==="
           .\build.ps1 -Configuration Release
 
+      - name: Dump entire workspace (recursive)
+        shell: pwsh
+        run: |
+          Write-Host "=== Full Workspace Contents ==="
+          Get-ChildItem -Recurse | ForEach-Object {
+            Write-Host ("{0}`t{1}" -f $_.FullName, $_.Length)
+          }
+
       - name: Verify Output folder exists
         shell: pwsh
         run: |
@@ -52,7 +53,7 @@ jobs:
           Get-ChildItem -Path $OutputPath -Recurse
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: NoGit
           path: module/NoGit/Output
@@ -64,10 +65,10 @@ jobs:
     env:
       PSGALLERY_TOKEN: ${{ secrets.PSGALLERY_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3.6.0
 
       - name: Download build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v3.0.2
         with:
           name: NoGit
           path: .
