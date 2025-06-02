@@ -5,14 +5,20 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  release:
-    types: [ published ]
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Show working directory and initial contents
+        shell: pwsh
+        run: |
+          Write-Host "=== Current Working Directory ==="
+          Get-Location
+          Write-Host "=== Top-level Items ==="
+          Get-ChildItem
 
       - name: Install PowerShell Modules
         shell: pwsh
@@ -23,7 +29,28 @@ jobs:
 
       - name: Run build.ps1
         shell: pwsh
-        run: .\build.ps1 -Configuration Release
+        run: |
+          Write-Host "=== Running build.ps1 ==="
+          .\build.ps1 -Configuration Release
+
+      - name: Dump entire workspace (recursive)
+        shell: pwsh
+        run: |
+          Write-Host "=== Full Workspace Contents ==="
+          Get-ChildItem -Recurse | ForEach-Object {
+            Write-Host ("{0}`t{1}" -f $_.FullName, $_.Length)
+          }
+
+      - name: Verify Output folder exists
+        shell: pwsh
+        run: |
+          $OutputPath = "module/NoGit/Output"
+          if (-not (Test-Path $OutputPath)) {
+            Write-Error "Output directory not found: $OutputPath"
+            exit 1
+          }
+          Write-Host "Output directory exists. Contents:"
+          Get-ChildItem -Path $OutputPath -Recurse
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v3
@@ -33,8 +60,8 @@ jobs:
 
   publish:
     needs: build
-    if: github.event_name == 'release'
     runs-on: windows-latest
+    if: github.ref == 'refs/heads/main'
     env:
       PSGALLERY_TOKEN: ${{ secrets.PSGALLERY_TOKEN }}
     steps:
@@ -46,14 +73,19 @@ jobs:
           name: NoGit
           path: .
 
-      - name: Publish to PowerShell Gallery
+      - name: Publish to PowerShell Gallery if version is new
         shell: pwsh
         run: |
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           $manifestPath = 'module/NoGit/NoGit.psd1'
+          if (-not (Test-Path $manifestPath)) {
+              Write-Error "Manifest file not found: $manifestPath"
+              exit 1
+          }
+
           $manifest = Import-PowerShellDataFile $manifestPath
           $version = [string]$manifest.ModuleVersion
-          Write-Host "Preparing to publish version $version..."
+          Write-Host "Preparing to publish NoGit version $version..."
 
           $existing = Find-Module -Name 'NoGit' -Repository PSGallery -ErrorAction SilentlyContinue
           if ($existing -and $existing.Version -eq $version) {
@@ -62,4 +94,10 @@ jobs:
           }
 
           $modulePath = Join-Path (Get-Location) 'module/NoGit/Output'
+          if (-not (Test-Path $modulePath)) {
+              Write-Error "Module output folder not found: $modulePath"
+              exit 1
+          }
+
+          Write-Host "Publishing from: $modulePath"
           Publish-Module -Path $modulePath -NuGetApiKey $env:PSGALLERY_TOKEN -ErrorAction Stop
