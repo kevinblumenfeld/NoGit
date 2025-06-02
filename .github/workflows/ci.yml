@@ -11,6 +11,13 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Dump entire workspace (recursive)
+        shell: pwsh
+        run: |
+          Write-Host "=== Full Workspace Contents ==="
+          Get-ChildItem -Recurse | ForEach-Object {
+            Write-Host ("{0}`t{1}" -f $_.FullName, $_.Length)
+          }
 
       - name: Show working directory and initial contents
         shell: pwsh
@@ -32,14 +39,6 @@ jobs:
         run: |
           Write-Host "=== Running build.ps1 ==="
           .\build.ps1 -Configuration Release
-
-      - name: Dump entire workspace (recursive)
-        shell: pwsh
-        run: |
-          Write-Host "=== Full Workspace Contents ==="
-          Get-ChildItem -Recurse | ForEach-Object {
-            Write-Host ("{0}`t{1}" -f $_.FullName, $_.Length)
-          }
 
       - name: Verify Output folder exists
         shell: pwsh
