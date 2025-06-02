@@ -27,15 +27,6 @@ jobs:
           Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
           Install-Module -Name Pester -Force -Scope CurrentUser
 
-      - name: Prepare Output folder
-        shell: pwsh
-        run: |
-          $OutputPath = "Output"
-          if (-not (Test-Path $OutputPath)) {
-            Write-Host "Creating Output directory at root level..."
-            New-Item -ItemType Directory -Path $OutputPath | Out-Null
-          }
-
       - name: Run build.ps1
         shell: pwsh
         run: |
@@ -54,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NoGit
-          path: Output
+          path: module/NoGit/Output
 
   publish:
     needs: build
@@ -69,7 +60,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: NoGit
-          path: Output
+          path: module/NoGit/Output
 
       - name: Publish to PowerShell Gallery if version is new
         shell: pwsh
@@ -91,7 +82,7 @@ jobs:
               exit 0
           }
 
-          $modulePath = Join-Path (Get-Location) 'Output'
+          $modulePath = Join-Path (Get-Location) 'module/NoGit/Output'
           if (-not (Test-Path $modulePath)) {
               Write-Error "Module output folder not found: $modulePath"
               exit 1
