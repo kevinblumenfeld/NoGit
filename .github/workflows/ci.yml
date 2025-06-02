@@ -1,85 +1,65 @@
-name: NoGit CI
+name: CI
+
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
   release:
-    types:
-      - published
-
-env:
-  DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  POWERSHELL_TELEMETRY_OPTOUT: 1
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
-  DOTNET_NOLOGO: true
+    types: [ published ]
 
 jobs:
   build:
-    name: Build NoGit Module
     runs-on: windows-latest
-    outputs:
-      module_path: ${{ steps.find_manifest.outputs.module_path }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Ensure Output directory exists
+      - name: Install PowerShell Modules
         shell: pwsh
         run: |
-          New-Item -Path ./Output -ItemType Directory -Force | Out-Null
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
+          Install-Module -Name Pester -Force -Scope CurrentUser
 
-      - name: Install ModuleBuilder
+      - name: Run build.ps1
         shell: pwsh
-        run: Install-Module ModuleBuilder -Scope CurrentUser -Force
+        run: .\build.ps1 -Configuration Release
 
-      - name: Build Module
-        shell: pwsh
-        run: |
-          Build-Module -SourcePath ./module/NoGit -OutputDirectory ./Output
-
-      - name: Upload module package
-        uses: actions/upload-artifact@v4
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: PSModule
-          path: ./Output/**/*
-
-      - name: Find module manifest
-        id: find_manifest
-        shell: pwsh
-        run: |
-          $manifest = Get-ChildItem -Path ./Output -Recurse -Filter '*.psd1' | Select-Object -First 1
-          "module_path=$($manifest.FullName)" >> $env:GITHUB_OUTPUT
+          name: NoGit
+          path: module/NoGit/Output
 
   publish:
-    name: Publish to PowerShell Gallery
     needs: build
     if: github.event_name == 'release'
     runs-on: windows-latest
+    env:
+      PSGALLERY_TOKEN: ${{ secrets.PSGALLERY_TOKEN }}
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: PSModule
-          path: ./Output
+      - uses: actions/checkout@v3
 
-      - name: Publish to Gallery (if new version)
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: NoGit
+          path: .
+
+      - name: Publish to PowerShell Gallery
         shell: pwsh
         run: |
-          $moduleManifest = Get-ChildItem -Path ./Output -Recurse -Filter '*.psd1' | Select-Object -First 1
-          $module = Test-ModuleManifest -Path $moduleManifest.FullName
-          $moduleName = $module.Name
-          $moduleVersion = $module.Version.ToString()
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          $manifestPath = 'module/NoGit/NoGit.psd1'
+          $manifest = Import-PowerShellDataFile $manifestPath
+          $version = [string]$manifest.ModuleVersion
+          Write-Host "Preparing to publish version $version..."
 
-          $existing = Find-Module -Name $moduleName -ErrorAction SilentlyContinue
-          if ($existing -and $existing.Version -ge $moduleVersion) {
-            Write-Host "Module $moduleName v$moduleVersion already published. Skipping."
-            exit 0
+          $existing = Find-Module -Name 'NoGit' -Repository PSGallery -ErrorAction SilentlyContinue
+          if ($existing -and $existing.Version -eq $version) {
+              Write-Host "Version $version already exists on PSGallery. Skipping publish."
+              exit 0
           }
 
-          Set-Location (Split-Path -Path $moduleManifest.FullName -Parent)
-          Publish-Module -Name $module.Name -NuGetApiKey $env:PSGALLERY_TOKEN -Verbose
-        env:
-          PSGALLERY_TOKEN: ${{ secrets.PSGALLERY_TOKEN }}
+          $modulePath = Join-Path (Get-Location) 'module/NoGit/Output'
+          Publish-Module -Path $modulePath -NuGetApiKey $env:PSGALLERY_TOKEN -ErrorAction Stop

@@ -3,7 +3,7 @@
 
 @{
     RootModule        = 'NoGit.psm1'
-    ModuleVersion     = '0.1.2'
+    ModuleVersion     = '0.1.3'
     GUID              = '8e95c71c-83be-40bd-8633-2c9b080f0919'
     Author            = 'Kevin Blumenfeld'
     Copyright         = 'Copyright (c) 2025 by Kevin Blumenfeld, licensed under MIT.'
