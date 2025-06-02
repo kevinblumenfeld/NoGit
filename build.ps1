@@ -10,7 +10,8 @@ param (
 
 # Determine paths
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ModuleDir = Join-Path $ScriptDir 'module\NoGit'
+$RepoRoot = $ScriptDir
+$ModuleDir = Join-Path $RepoRoot 'module\NoGit'
 $ManifestFile = Join-Path $ModuleDir 'NoGit.psd1'
 
 # Verify manifest exists
@@ -36,7 +37,7 @@ if (-not (Get-Module -ListAvailable -Name ModuleBuilder)) {
 Import-Module ModuleBuilder -Force
 
 # Prepare output directory
-$OutputDir = Join-Path $ModuleDir 'Output'
+$OutputDir = Join-Path $RepoRoot 'Output\NoGit'
 if (Test-Path $OutputDir) {
     Remove-Item $OutputDir -Recurse -Force -ErrorAction SilentlyContinue
 }

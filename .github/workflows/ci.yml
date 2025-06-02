@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NoGit
-          path: module/NoGit/Output
+          path: Output
 
   publish:
     needs: build
@@ -60,7 +60,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: NoGit
-          path: module/NoGit/Output
+          path: Output
 
       - name: Publish to PowerShell Gallery if version is new
         shell: pwsh
@@ -82,7 +82,7 @@ jobs:
               exit 0
           }
 
-          $modulePath = Join-Path (Get-Location) 'module/NoGit/Output'
+          $modulePath = Join-Path (Get-Location) 'Output\NoGit'
           if (-not (Test-Path $modulePath)) {
               Write-Error "Module output folder not found: $modulePath"
               exit 1
