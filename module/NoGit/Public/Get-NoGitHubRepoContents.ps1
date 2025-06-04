@@ -4,120 +4,141 @@ function Get-NoGitHubRepoContents {
     Recursively downloads the contents of a GitHub repository to a local directory using the GitHub REST API.
 
     .DESCRIPTION
-    This function connects to GitHub using a personal access token (PAT) to authenticate and recursively downloads all 
-    files and folders from a specified repository and branch. It supports downloading the entire content tree of the 
-    repository and saves it to a designated local directory.
-
-    It uses GitHub's REST API (`/repos/:owner/:repo/contents`) to fetch files and handles directories by recursion.
+    This function connects to the GitHub API and performs a breadth-first traversal of the specified repository
+    and branch. It downloads each file to a local directory, preserving folder structure. A typed queue is used
+    instead of recursion for safe and scalable folder traversal.
 
     .PARAMETER Token
-    A GitHub Personal Access Token (PAT) with appropriate repository access permissions. 
-    This token is used for authentication with the GitHub API.
-
-    You can create a token at: https://github.com/settings/tokens
+    GitHub personal access token for authentication.
 
     .PARAMETER Owner
-    The username or organization name that owns the GitHub repository. 
-    This is part of the GitHub repository URL. For example:
-
-        GitHub URL: https://github.com/microsoft/PowerToys
-                                       ^^^^^^^^^
-                                       This is the Owner
+    GitHub username or organization name.
 
     .PARAMETER Repo
-    The name of the repository to download contents from. 
-    This is also part of the GitHub repository URL. For example:
-
-        GitHub URL: https://github.com/microsoft/PowerToys
-                                                 ^^^^^^^^
-                                                 This is the Repo
+    Name of the GitHub repository.
 
     .PARAMETER Branch
-    (Optional) The name of the branch to download from. 
-    Defaults to 'main' if not specified.
+    Optional. Branch to download from. Defaults to 'main'.
 
     .PARAMETER TargetDir
-    The local directory path where the contents of the GitHub repository will be downloaded. 
-    If the directory does not exist, it will be created.
+    Local directory path to save downloaded content.
 
     .EXAMPLE
-    Get-NoGitHubRepoContents -Token 'ghp_xxx' -Owner 'microsoft' -Repo 'PowerToys' -TargetDir 'C:\Repos\PowerToys'
-
-    Downloads the contents of the `PowerToys` repository from the `microsoft` organization on the `main` branch and saves them into `C:\Repos\PowerToys`.
-
-    .EXAMPLE
-    Get-NoGitHubRepoContents -Token 'ghp_abc' -Owner 'kevinblumenfeld' -Repo 'PS7' -Branch 'dev' -TargetDir 'D:\Temp\PS7Dev'
-
-    Downloads the contents of the `PS7` repository from the `kevinblumenfeld` account on the `dev` branch into `D:\Temp\PS7Dev`.
-
-    .NOTES
-    Author: Your Name
-    Required: PowerShell 7.0+
-    GitHub API Rate Limits apply (even for authenticated requests). For large repositories, use cautiously.
-
+    Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Git\Hello' -Verbose
     #>
+
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [string]
-        $Token,
+        [string] $Token,
 
         [Parameter(Mandatory)]
-        [string]
-        $Owner,
+        [string] $Owner,
 
         [Parameter(Mandatory)]
-        [string]
-        $Repo,
+        [string] $Repo,
 
-        [string]
-        $Branch = 'main',
+        [string] $Branch = 'main',
 
         [Parameter(Mandatory)]
-        [string]
-        $TargetDir
+        [string] $TargetDir
     )
 
+    # Start a timer to measure execution time
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
+    # Set up GitHub API request headers
     $headers = @{
         Authorization = "token $Token"
         'User-Agent'  = $Owner
     }
 
+    # Ensure target directory exists
     if (-not (Test-Path -Path $TargetDir)) {
         try {
             New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
             Write-Verbose "Created directory: $TargetDir"
         }
         catch {
-            Write-Error ("Failed to create directory: $TargetDir - {0}" -f $_.Exception.Message)
+            Write-Error "Failed to create directory: $TargetDir - $($_.Exception.Message)"
             return
         }
     }
 
-    $script:SuccessCount = 0
-    $script:FailCount = 0
+    # Initialize counters for success and failure
+    $SuccessCount = 0
+    $FailCount = 0
 
-    $ApiUrl = "https://api.github.com/repos/$Owner/$Repo/contents"
-    $initialParams = @{
-        Url       = "${ApiUrl}?ref=${Branch}"
-        Headers   = $headers
-        TargetDir = $TargetDir
-        Branch    = $Branch
+    # Initialize a strongly typed queue for BFS directory traversal
+    $queue = [System.Collections.Generic.Queue[PSObject]]::new()
+    $queue.Enqueue([PSCustomObject]@{
+            Url     = "https://api.github.com/repos/$Owner/$Repo/contents?ref=$Branch"
+            RelPath = ''
+        })
+
+    # Process directories and files in a breadth-first manner
+    while ($queue.Count -gt 0) {
+        $current = $queue.Dequeue()
+
+        try {
+            $items = Invoke-RestMethod -Uri $current.Url -Headers $headers -ErrorAction Stop -Verbose:$false
+            Write-Verbose "Fetched: $($current.Url) ($(@($items).Count) item(s))"
+        }
+        catch {
+            Write-Error "Failed to fetch: $($current.Url) - $($_.Exception.Message)"
+            $FailCount++
+            continue
+        }
+
+        foreach ($item in $items) {
+            $path = if ($current.RelPath) {
+                Join-Path -Path $current.RelPath -ChildPath $item.name
+            }
+            else {
+                $item.name
+            }
+        
+            if ($item.type -eq 'dir') {
+                $nextUrl = if ($item.url -like '*?ref=*') { $item.url } else { "$($item.url)?ref=$Branch" }
+                $queue.Enqueue([PSCustomObject]@{
+                        Url     = $nextUrl
+                        RelPath = $path
+                    })
+                continue
+            }
+        
+            # Are there any other item types?
+            if ($item.type -ne 'file') {
+                continue
+            }
+
+            $outPath = Join-Path $TargetDir $path
+            $outDir = Split-Path $outPath -Parent
+
+            try {
+                if (-not (Test-Path $outDir)) {
+                    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+                }
+
+                Invoke-WebRequest -Uri $item.download_url -Headers $headers -OutFile $outPath -ErrorAction Stop -Verbose:$false
+                Write-Verbose "Downloaded: $path"
+                $SuccessCount++
+            }
+            catch {
+                Write-Error "Failed to download: $path - $($_.Exception.Message)"
+                $FailCount++
+            }
+        }
     }
 
-    Get-NoGitHubRepoRecursiveContents @initialParams
-
+    # Stop the timer and show summary
     $stopwatch.Stop()
-
     $elapsed = $stopwatch.Elapsed
     $formattedTime = '{0:D2}:{1:D2}:{2:D2}' -f $elapsed.Hours, $elapsed.Minutes, $elapsed.Seconds
 
     Write-Verbose "--- Summary for $Owner/$Repo ---"
-    Write-Verbose ("Success   : {0}" -f $script:SuccessCount)
-    Write-Verbose ("Fail      : {0}" -f $script:FailCount)
+    Write-Verbose ("Success   : {0}" -f $SuccessCount)
+    Write-Verbose ("Fail      : {0}" -f $FailCount)
     Write-Verbose ("OutputDir : {0}" -f $TargetDir)
     Write-Verbose ("Elapsed   : {0}" -f $formattedTime)
-    
 }

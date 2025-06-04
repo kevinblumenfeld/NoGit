@@ -52,9 +52,11 @@ Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -
 ```
 
 ```powershell
-Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Verbose
+Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Branch 'feature-x' -Verbose
 ```
+> **ℹ️ Note:** The `-Branch` parameter is optional and defaults to `"main"`.
 
+---
 ### Tree-Based Method (for large directories > 1000 files)
 
 ```powershell
