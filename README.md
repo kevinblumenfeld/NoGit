@@ -1,3 +1,4 @@
+
 <h1 align="center">NoGit</h1>
 <div align="center">
 <sub>Download GitHub repository contents without installing Git.</sub>
@@ -17,11 +18,12 @@
 
 ## 🚀 Features
 
-- 🔒 Uses secure GitHub fine-grained personal access tokens (PAT)
-- 📂 Recursively downloads full repo contents using two API methods
-- 📁 Saves to any local directory with auto-creation
-- 🛠️ CI/CD-friendly logging via `Write-Verbose`
-- 🚫 No dependency on `git`
+* 🔒 Uses secure GitHub fine-grained personal access tokens (PAT)
+* 📂 Recursively downloads full repo contents using two API methods
+* 📁 Saves to any local directory with auto-creation
+* 🛠️ CI/CD-friendly logging via `Write-Verbose`
+* 🎯 Supports targeted downloads with `-SourcePath`
+* 🚫 No dependency on `git`
 
 ---
 
@@ -54,16 +56,45 @@ Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -
 ```powershell
 Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Branch 'feature-x' -Verbose
 ```
+
 > **ℹ️ Note:** The `-Branch` parameter is optional and defaults to `"main"`.
 
 ---
+
 ### Tree-Based Method (for large directories > 1000 files)
+
+Use `Get-NoGitHubRepoTreeContents` when working with repositories that:
+
+* Contain directories with large numbers of files (over 1000), where the standard Contents API may truncate results.
+* Require efficient retrieval and fine-grained filtering of specific subfolders and their contents.
+
+#### Example (Download entire repo):
 
 ```powershell
 Get-NoGitHubRepoTreeContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Verbose
 ```
 
-Use `Get-NoGitHubRepoTreeContents` when dealing with a repository that has directories containing over 1000 files, where the standard Contents API may not return all results due to limitations.
+#### Example (Download a specific folder with `-SourcePath`):
+
+```powershell
+Get-NoGitHubRepoTreeContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -Branch 'main' -TargetDir 'C:\Temp\Hello-World' -SourcePath 'src/module' -Verbose
+```
+
+**What does `-SourcePath` do?**
+
+* Filters files to only those under the specified folder path.
+* Downloads all files and subfolders **recursively** under it.
+* The `SourcePath` itself is **not included** in your local output – only its contents and subfolders are preserved.
+
+*For example:*
+If `SourcePath` is `'Build/DTect'` and `TargetDir` is `'C:\Temp\DTect'`,
+then `'Build/DTect/0.0.637/file.psd1'` will be saved as:
+
+```
+C:\Temp\DTect\0.0.637\file.psd1
+```
+
+> ✅ **Note:** Any directory in the repository matching `SourcePath` will be downloaded.
 
 ---
 
@@ -84,8 +115,8 @@ VERBOSE: Elapsed   : 00:00:05
 
 ## 🔐 Requirements
 
-- PowerShell 5.1 or later (7+ recommended)
-- GitHub fine-grained [personal access token (PAT)](https://github.com/settings/tokens) with `repo contents:read` permission
+* PowerShell 5.1 or later (7+ recommended)
+* GitHub fine-grained [personal access token (PAT)](https://github.com/settings/personal-access-tokens) with `repo contents:read` permission
 
 ---
 
@@ -95,7 +126,13 @@ Contributions are welcome! Open issues, suggest improvements, or submit a PR.
 
 ---
 
+## 📝 Upcoming Features
+
+- Parallel processing implementation for faster downloads of large repositories
+- Pester tests for publishing automation
+
+---
+
 ## 📄 License
 
 Licensed under the [MIT License](LICENSE).
-

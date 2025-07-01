@@ -1,4 +1,4 @@
-function Get-NoGitHubRepoTreeContents {
+function Get-NoGitHubRepoTreeContents { 
     <#
     .SYNOPSIS
         Downloads files from a GitHub repository using the Git Trees API.
@@ -7,11 +7,18 @@ function Get-NoGitHubRepoTreeContents {
         Uses the Git Trees API to recursively traverse a repository tree
         and download all blob (file) entries to a local directory.
 
+        The -SourcePath parameter specifies where within the repository to begin copying.
+        Only files under this path are downloaded, and the SourcePath itself is removed
+        from the output folder structure. Subfolders under SourcePath are preserved.
+
         Handles SHA resolution, recursive trees, blob retrieval, and writes
         file contents to disk. Skips directories and submodules.
 
     .PARAMETER Token
         The GitHub Personal Access Token (PAT).
+
+        Use a fine-grained personal access token with `repo contents:read` permission:
+        https://github.com/settings/personal-access-tokens
 
     .PARAMETER Owner
         The repository owner (user or organization).
@@ -25,8 +32,38 @@ function Get-NoGitHubRepoTreeContents {
     .PARAMETER TargetDir
         Directory to save the files to.
 
+    .PARAMETER SourcePath
+        The folder or path within the repository to start copying from.
+
+        - Acts as a starting point filter.
+        - Downloads all files and subfolders under this path, recursively.
+        - The SourcePath folder itself is not included in your local output – only its contents and subfolders are preserved.
+
+        For example:
+            If SourcePath is 'Build/DTect' and TargetDir is 'C:\Temp\DTect',
+            then a file at 'Build/DTect/0.0.637/file.psd1' in the repo will be saved as:
+                'C:\Temp\DTect\0.0.637\file.psd1'
+
+        Note:
+            Any directory path in the repository that matches SourcePath will be downloaded.
+
+        This is useful when you want to extract specific folders or modules from a repository
+        without keeping their entire parent folder structure.
+
     .EXAMPLE
-        Get-NoGitHubRepoTreeContents -Token 'abc' -Owner 'octocat' -Repo 'Hello-World' -TargetDir './repo'
+        Get-NoGitHubRepoTreeContents -Token 'abc' -Owner 'octocat' -Repo 'Hello-World' -TargetDir './repo' -SourcePath 'Build/DTect'
+
+    .NOTES
+        Use Get-NoGitHubRepoTreeContents when working with repositories that:
+
+        - Contain directories with large numbers of files (over 1000), where the standard Contents API may truncate results.
+        - Require efficient retrieval and fine-grained filtering of specific subfolders and their contents.
+
+        This approach ensures reliable downloads without missing files due to API listing limits.
+
+        For more details and examples, see:
+        https://github.com/kevinblumenfeld/NoGit
+
     #>
     [CmdletBinding()]
     param (
@@ -48,7 +85,10 @@ function Get-NoGitHubRepoTreeContents {
 
         [Parameter(Mandatory)]
         [string]
-        $TargetDir
+        $TargetDir,
+
+        [string[]]
+        $SourcePath
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -92,7 +132,21 @@ function Get-NoGitHubRepoTreeContents {
     foreach ($entry in $treeResponse.tree) {
         if ($entry.type -ne 'blob') { continue }
 
-        $outputPath = Join-Path -Path $TargetDir -ChildPath $entry.path
+        # 🔹 Only process paths matching SourcePath if specified
+        if ($SourcePath -and (-not ($SourcePath | ForEach-Object { $entry.path -like "$_*" }))) {
+            continue
+        }
+
+        # 🔹 Strip SourcePath prefix from path before joining with TargetDir
+        $relativePath = $entry.path
+        foreach ($src in $SourcePath) {
+            if ($relativePath -like "$src*") {
+                $relativePath = $relativePath.Substring($src.Length).TrimStart('/', '\')
+                break
+            }
+        }
+
+        $outputPath = Join-Path -Path $TargetDir -ChildPath $relativePath
         $outputDir = Split-Path -Path $outputPath -Parent
 
         if (-not (Test-Path -Path $outputDir)) {
@@ -105,7 +159,7 @@ function Get-NoGitHubRepoTreeContents {
             $blobHeaders['Accept'] = 'application/vnd.github.v3.raw'
 
             Invoke-WebRequest -Uri $blobUrl -Headers $blobHeaders -OutFile $outputPath -Verbose:$false
-            Write-Verbose "Downloaded: $($entry.path)"
+            Write-Verbose "Downloaded: $($entry.path) -> $relativePath"
             $script:SuccessCount++
         }
         catch {
@@ -124,5 +178,4 @@ function Get-NoGitHubRepoTreeContents {
     Write-Verbose ("Fail      : {0}" -f $script:FailCount)
     Write-Verbose ("OutputDir : {0}" -f $TargetDir)
     Write-Verbose ("Elapsed   : {0}" -f $formattedTime)
-    
 }
