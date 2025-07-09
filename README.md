@@ -35,7 +35,7 @@ Install-Module NoGit -Scope CurrentUser -Force
 ```
 
 
-> **ℹ️ Note:** If you cannot install this module, run the command below, then paste it (CTRL + V) into PowerShell and press Enter. You can then run the commands below.
+> **ℹ️ Note:** If you cannot install this module, run the command below, then paste it (CTRL + V) into PowerShell and press Enter. You can then run `Get-NoGitHubRepoTreeContents`.
 
 ```powershell
 irm 'https://raw.githubusercontent.com/kevinblumenfeld/NoGit/main/module/NoGit/Public/Get-NoGitHubRepoTreeContents.ps1' | Set-Clipboard
@@ -66,6 +66,7 @@ Get-NoGitHubRepoTreeContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-Worl
 ```powershell
 Get-NoGitHubRepoTreeContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -SourcePath 'src/module' -Verbose
 ```
+> **ℹ️ Note:** The `-Branch` parameter is optional and defaults to `"main"`.
 
 **What does -SourcePath do?** 
 - It filters the download to only include files and folders under the path you specify.
@@ -91,8 +92,6 @@ Then a file like: `Build/DTect/0.0.637/file.psd1`
 ```powershell
 Get-NoGitHubRepoContents -Token 'ghp_...' -Owner 'octocat' -Repo 'Hello-World' -TargetDir 'C:\Temp\Hello-World' -Branch 'feature-x' -Verbose
 ```
-
-> **ℹ️ Note:** The `-Branch` parameter is optional and defaults to `"main"`.
 
 ---
 
