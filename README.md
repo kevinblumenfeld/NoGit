@@ -35,11 +35,11 @@ Install-Module NoGit -Scope CurrentUser -Force
 ```
 
 
-> **ℹ️ Note:** If you cannot install this module, run the command below, then paste it (CTRL + V) into PowerShell and press Enter. You can then run `Get-NoGitHubRepoTreeContents`.
+> **ℹ️ Note:** If you cannot install this module, run the command below and press Enter. You can then run `Get-NoGitHubRepoTreeContents`.
 
 ```powershell
-irm 'https://raw.githubusercontent.com/kevinblumenfeld/NoGit/main/module/NoGit/Public/Get-NoGitHubRepoTreeContents.ps1' | Set-Clipboard
-# then press CTRL + V and enter
+iex (irm 'https://raw.githubusercontent.com/kevinblumenfeld/NoGit/main/module/NoGit/Public/Get-NoGitHubRepoTreeContents.ps1')
+#
 ```
 
 ---
